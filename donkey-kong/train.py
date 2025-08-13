@@ -12,8 +12,9 @@ policy_kwargs = dict(
     features_extractor_kwargs=dict(features_dim=512),
 )
 
-model = PPO("CnnPolicy", env, policy_kwargs=policy_kwargs, verbose=1)
+model = PPO.load("ppo_donkey_kong.pth", env=env, policy_kwargs=policy_kwargs, verbose=1)
+# model = PPO("CnnPolicy", env, policy_kwargs=policy_kwargs, verbose=1)
 
-model.learn(total_timesteps=100000)
+model.learn(total_timesteps=1_000_000)
 
 model.save("ppo_donkey_kong.pth")
