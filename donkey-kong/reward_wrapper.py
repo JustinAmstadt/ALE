@@ -1,5 +1,7 @@
 import gymnasium as gym
 import numpy as np
+import torch
+import matplotlib.pyplot as plt
 
 
 class CustomRewardWrapper(gym.Wrapper):
@@ -28,7 +30,8 @@ class CustomRewardWrapper(gym.Wrapper):
         """Execute action and apply custom reward modifications."""
         #print(f"Action: {action}")
         obs, original_reward, terminated, truncated, info = self.env.step(action)
-        
+
+
         # Get the custom reward addition
         custom_reward = self.calculate_custom_reward(obs, original_reward, terminated, truncated, info)
         
@@ -59,26 +62,45 @@ class CustomRewardWrapper(gym.Wrapper):
         # 1. Small penalty for each step to encourage efficiency
         custom_reward -= 0.01
         
-        # 2. Bonus for score increases (if score info is available)
-        if 'score' in info:
-            score_increase = info['score'] - self.prev_score
-            if score_increase > 0:
-                custom_reward += score_increase * 0.1  # 10% bonus of score increase
-                self.steps_since_score = 0
-            else:
-                self.steps_since_score += 1
-            self.prev_score = info['score']
-        
         # 3. Bonus for staying alive longer
         if 'lives' in info:
             if self.prev_lives is not None and info['lives'] < self.prev_lives:
                 # Life lost penalty
                 custom_reward -= 10.0
             self.prev_lives = info['lives']
+
+        # 4. Reward for moving up
+        averaged_position = self._get_averaged_mario_pixel_position(obs)
+        y_position = averaged_position[0]
+        if y_position < self.max_y_position:
+            custom_reward += 1.0
+        self.max_y_position = max(self.max_y_position, y_position)
+
         
         # 5. Penalty for being idle (no score progress)
         if self.steps_since_score > 100:  # No score for 100 steps
             custom_reward -= 0.1
         
         return custom_reward
+
+    def _get_averaged_mario_pixel_position(self, obs):
+        # mario red color: [200,  72,  72]
+        mario_red_color = torch.tensor([200,  72,  72])
+        obs_t = torch.tensor(obs)
+        mario_red_mask = (obs_t == mario_red_color).all(dim=-1)
+
+        positions = torch.nonzero(mario_red_mask, as_tuple=False)
+
+        def remove_peach_belt(positions):
+            remove = torch.tensor([[26, 66], [26, 67]])
+            # Create a mask to keep only rows NOT in remove
+            mask = ~((positions[:, None] == remove).all(dim=2).any(dim=1))
+            return positions[mask]
+
+        positions = remove_peach_belt(positions)
+
+        averaged_position = positions.float().mean(dim=0)
+        return averaged_position
+
+
 

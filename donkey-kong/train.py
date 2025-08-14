@@ -10,8 +10,6 @@ base_env = gym.make("ALE/DonkeyKong-v5")
 
 env = CustomRewardWrapper(base_env)
 
-print(env.action_space)
-
 policy_kwargs = dict(
     features_extractor_class=PPOAtariFeatureExtractor,
     features_extractor_kwargs=dict(features_dim=512),
